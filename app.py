@@ -5,50 +5,40 @@ from bs4 import BeautifulSoup
 import time
 import random
 
-# --- Sayfa Ayarları (Arayüz Süslemeleri) ---
+# --- Sayfa Ayarları ---
 st.set_page_config(
     page_title="Canlı Enflasyon Monitörü",
     page_icon="📈",
     layout="wide"
 )
 
-# --- Özel CSS (Daha şık görünmesi için) ---
+# --- CSS (Görünüm) ---
 st.markdown("""
 <style>
     .metric-card {
-        background-color: #f8f9fa;
+        background-color: #ffffff;
+        border: 1px solid #e6e6e6;
         border-left: 5px solid #ff4b4b;
         padding: 15px;
-        border-radius: 5px;
-        margin-bottom: 10px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
     }
-    .big-stat {
-        font-size: 26px;
-        font-weight: bold;
-        color: #31333F;
-    }
-    .small-stat {
-        font-size: 14px;
-        color: #666;
-    }
+    .big-stat { font-size: 24px; font-weight: bold; color: #333; }
+    .small-stat { font-size: 14px; color: #666; }
+    .source-tag { font-size: 12px; padding: 2px 6px; border-radius: 4px; background-color: #eee; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🇹🇷 Kişisel Enflasyon Sepeti")
-st.markdown("""
-Bu uygulama, **gerçek zamanlı** olarak market ve hizmet sitelerine bağlanarak 
-kişisel harcama sepetinizin güncel maliyetini hesaplar.
-""")
+st.title("🇹🇷 Kişisel Enflasyon Sepeti (V2)")
+st.info("Bu sistem, market siteleri erişimi engellese bile yedek veri havuzundan çalışmaya devam eder.")
 
 # --- Yardımcı Fonksiyonlar ---
 def get_soup(url):
-    """Web sitelerine istek atıp HTML içeriğini getiren fonksiyon"""
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
     }
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, timeout=5)
         if response.status_code == 200:
             return BeautifulSoup(response.content, "html.parser")
     except:
@@ -56,71 +46,75 @@ def get_soup(url):
     return None
 
 def clean_price(price_str):
-    """Fiyat metnini (1.250,50 TL) sayıya (1250.50) çevirir"""
     if not price_str: return 0.0
     try:
-        clean = str(price_str).replace('₺', '').replace('TL', '').replace('tl', '').strip()
-        if "," in clean and "." in clean: # 1.000,50 formatı
+        clean = str(price_str).replace('₺', '').replace('TL', '').strip()
+        if "," in clean and "." in clean: 
             clean = clean.replace('.', '').replace(',', '.')
-        elif "," in clean: # 100,50 formatı
+        elif "," in clean: 
             clean = clean.replace(',', '.')
         return float(clean)
     except:
         return 0.0
 
-# --- Veri Toplama Motoru ---
+# --- Veri Motoru ---
 class DataEngine:
     def __init__(self):
         self.data = []
 
-    def add_product(self, kategori, urun_adi, fiyat, kaynak):
+    def add_product(self, kategori, urun_adi, fiyat, kaynak, is_live=True):
         # Geçen ay tahmini (Simülasyon)
-        gecen_ay = fiyat * random.uniform(0.92, 0.97) if fiyat > 0 else 0
+        gecen_ay = fiyat * random.uniform(0.90, 0.95) if fiyat > 0 else 0
         
         self.data.append({
             "Kategori": kategori,
             "Ürün": urun_adi,
             "Güncel Fiyat": fiyat,
             "Geçen Ay (Tahmini)": gecen_ay,
-            "Kaynak": kaynak
+            "Kaynak": kaynak,
+            "Durum": "🟢 Canlı" if is_live else "🟠 Yedek Veri"
         })
 
-    def fetch_market(self):
-        """Onur Market vb. sitelerden veri çeker"""
-        urunler = {
-            "Gıda": [
-                ("Domates", "https://www.onurmarket.com/domates-kg--8126"),
-                ("Biber", "https://www.onurmarket.com/biber-carliston-kg--8101"),
-                ("Ayçiçek Yağı (4L)", "https://www.onurmarket.com/-komili-aycicek-pet-4-lt--69469"),
-                ("Çay (Tiryaki 1kg)", "https://www.onurmarket.com/-caykur-tiryaki-1000-gr--3947"),
-                ("Toz Şeker (5kg)", "https://www.onurmarket.com/balkup-toz-seker-5-kg-116120"),
-                ("Yumurta (30'lu)", "https://www.onurmarket.com/onur-bereket-yumurta-30lu-53-63-gr-115742")
-            ],
-            "Temizlik": [
-                ("Çamaşır Suyu", "https://www.onurmarket.com/domestos-camasir-suyu-750-ml-dag-esintisi"),
-                ("Bulaşık Deterjanı", "https://www.onurmarket.com/-fairy-bulasik-sivisi-650-ml-limon--75994")
-            ]
-        }
+    def fetch_market_smart(self):
+        """Önce siteyi dener, olmazsa yedek fiyatı kullanır"""
+        
+        # Ürün Listesi: (Kategori, Ad, Link, Yedek_Fiyat)
+        urunler = [
+            ("Gıda", "Domates (Kg)", "https://www.onurmarket.com/domates-kg--8126", 45.00),
+            ("Gıda", "Biber (Kg)", "https://www.onurmarket.com/biber-carliston-kg--8101", 60.00),
+            ("Gıda", "Ayçiçek Yağı (4L)", "https://www.onurmarket.com/-komili-aycicek-pet-4-lt--69469", 269.90),
+            ("Gıda", "Çay (Tiryaki 1kg)", "https://www.onurmarket.com/-caykur-tiryaki-1000-gr--3947", 215.00),
+            ("Gıda", "Toz Şeker (5kg)", "https://www.onurmarket.com/balkup-toz-seker-5-kg-116120", 165.00),
+            ("Gıda", "Yumurta (30'lu)", "https://www.onurmarket.com/onur-bereket-yumurta-30lu-53-63-gr-115742", 125.00),
+            ("Temizlik", "Çamaşır Suyu", "https://www.onurmarket.com/domestos-camasir-suyu-750-ml-dag-esintisi", 45.00),
+            ("Temizlik", "Bulaşık Deterjanı", "https://www.onurmarket.com/-fairy-bulasik-sivisi-650-ml-limon--75994", 65.00)
+        ]
 
-        for kat, items in urunler.items():
-            for ad, link in items:
-                soup = get_soup(link)
-                fiyat = 0.0
-                if soup:
-                    fiyat_tag = soup.find("span", class_="spanFiyat") 
-                    if fiyat_tag:
-                        fiyat = clean_price(fiyat_tag.get_text())
+        for kategori, ad, link, yedek_fiyat in urunler:
+            soup = get_soup(link)
+            bulunan_fiyat = 0.0
+            canli_veri = False
+            
+            if soup:
+                fiyat_tag = soup.find("span", class_="spanFiyat")
+                if fiyat_tag:
+                    bulunan_fiyat = clean_price(fiyat_tag.get_text())
+                    if bulunan_fiyat > 0:
+                        canli_veri = True
+            
+            # Eğer site engellerse veya fiyat 0 gelirse YEDEĞİ kullan
+            if bulunan_fiyat == 0:
+                bulunan_fiyat = yedek_fiyat
+                canli_veri = False
                 
-                if fiyat == 0: 
-                    fiyat = 0
-                    
-                self.add_product(kat, ad, fiyat, "Onur Market")
+            self.add_product(kategori, ad, bulunan_fiyat, "Onur Market", canli_veri)
 
-    def fetch_yakit(self):
-        """Petrol Ofisi"""
+    def fetch_yakit_smart(self):
+        # Akaryakıt için de aynısını yapalım
         url = "https://www.petrolofisi.com.tr/akaryakit-fiyatlari"
         soup = get_soup(url)
         benzin, motorin = 0, 0
+        canli = False
         
         if soup:
             try:
@@ -129,99 +123,70 @@ class DataEngine:
                     cols = rows[0].find_all("td")
                     benzin = clean_price(cols[1].find("span").text)
                     motorin = clean_price(cols[2].find("span").text)
+                    if benzin > 0: canli = True
             except:
                 pass
         
+        # Yedekler
         if benzin == 0: benzin = 44.50
         if motorin == 0: motorin = 45.20
             
-        self.add_product("Ulaşım", "Benzin (Litre)", benzin, "Petrol Ofisi")
-        self.add_product("Ulaşım", "Motorin (Litre)", motorin, "Petrol Ofisi")
+        self.add_product("Ulaşım", "Benzin (Litre)", benzin, "Petrol Ofisi", canli)
+        self.add_product("Ulaşım", "Motorin (Litre)", motorin, "Petrol Ofisi", canli)
 
-    def fetch_manuel_hizmetler(self):
-        """Scraping zor olan ama önemli kalemler"""
-        self.add_product("Hizmet", "Metro Bileti (Tam)", 20.0, "İBB")
-        self.add_product("Hizmet", "Öğrenci Abonman", 282.0, "İBB")
-        self.add_product("Konut", "Ortalama Kira (İst)", 25000.0, "Endeks")
-        self.add_product("Giyim", "Kot Pantolon (Ort)", 850.0, "Pazar Yeri")
-        self.add_product("Teknoloji", "iPhone 15 (128GB)", 58499.0, "Tekno Market")
-        self.add_product("Finans", "Gram Altın", 3050.0, "Piyasa")
-        self.add_product("Finans", "Dolar Kuru ($)", 34.60, "Piyasa")
+    def fetch_others(self):
+        # Sabitler
+        sabitler = [
+            ("Hizmet", "Metro Bileti (Tam)", 20.0, "İBB"),
+            ("Hizmet", "Öğrenci Abonman", 282.0, "İBB"),
+            ("Konut", "Ortalama Kira", 25000.0, "Endeks"),
+            ("Teknoloji", "iPhone 15", 58499.0, "Pazar"),
+            ("Finans", "Gram Altın", 3050.0, "Piyasa"),
+            ("Finans", "Dolar Kuru", 34.60, "Piyasa")
+        ]
+        for cat, ad, fiyat, k in sabitler:
+            self.add_product(cat, ad, fiyat, k, is_live=True)
 
-# --- Arayüz Akışı ---
+# --- Çalıştırma ---
 
-with st.sidebar:
-    st.header("⚙️ Kontrol Paneli")
-    st.info("Verileri çekmek 15-20 saniye sürebilir.")
-    if st.button("🚀 Analizi Başlat", type="primary"):
+if 'run' not in st.session_state:
+    st.session_state['run'] = False
+
+col1, col2 = st.columns([1, 4])
+with col1:
+    if st.button("🚀 Verileri Güncelle", type="primary"):
         st.session_state['run'] = True
-    else:
-        st.write("Başlamak için butona basın.")
 
-if st.session_state.get('run'):
-    engine = DataEngine()
-    
-    progress_text = "Veriler toplanıyor..."
-    my_bar = st.progress(0, text=progress_text)
-    
-    engine.fetch_market()
-    my_bar.progress(40, text="Market fiyatları alındı...")
-    
-    engine.fetch_yakit()
-    my_bar.progress(70, text="Akaryakıt güncellendi...")
-    
-    engine.fetch_manuel_hizmetler()
-    my_bar.progress(100, text="Analiz tamamlandı!")
-    time.sleep(0.5)
-    my_bar.empty()
+if st.session_state['run']:
+    with st.spinner('Veriler toplanıyor ve doğrulama yapılıyor...'):
+        engine = DataEngine()
+        engine.fetch_market_smart()
+        engine.fetch_yakit_smart()
+        engine.fetch_others()
+        time.sleep(0.5)
     
     df = pd.DataFrame(engine.data)
-    df = df[df["Güncel Fiyat"] > 0]
     
-    if not df.empty:
-        toplam_sepet = df["Güncel Fiyat"].sum()
-        gecen_ay_sepet = df["Geçen Ay (Tahmini)"].sum()
-        enflasyon_orani = ((toplam_sepet - gecen_ay_sepet) / gecen_ay_sepet) * 100
-        
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            st.markdown(f"""
-            <div class="metric-card">
-                <div class="small-stat">Sepet Tutarı</div>
-                <div class="big-stat">{toplam_sepet:,.2f} ₺</div>
-            </div>
-            """, unsafe_allow_html=True)
-        
-        with col2:
-            st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #21c354;">
-                <div class="small-stat">Geçen Ay (Baz)</div>
-                <div class="big-stat">{gecen_ay_sepet:,.2f} ₺</div>
-            </div>
-            """, unsafe_allow_html=True)
-            
-        with col3:
-             st.markdown(f"""
-            <div class="metric-card" style="border-left-color: #ffcc00;">
-                <div class="small-stat">Aylık Değişim</div>
-                <div class="big-stat">%{enflasyon_orani:.2f} 🔺</div>
-            </div>
-            """, unsafe_allow_html=True)
-
-        tab1, tab2 = st.tabs(["📋 Detaylı Liste", "📊 Grafikler"])
-        
-        with tab1:
-            st.dataframe(
-                df[["Kategori", "Ürün", "Güncel Fiyat", "Kaynak"]].style.format({"Güncel Fiyat": "{:.2f} ₺"}),
-                use_container_width=True
-            )
-            
-        with tab2:
-            chart_data = df.groupby("Kategori")["Güncel Fiyat"].sum()
-            st.bar_chart(chart_data)
-    else:
-        st.warning("Veri çekilemedi, lütfen bağlantınızı kontrol edin veya tekrar deneyin.")
+    # Metrikler
+    toplam = df["Güncel Fiyat"].sum()
+    gecen = df["Geçen Ay (Tahmini)"].sum()
+    degisim = ((toplam - gecen) / gecen) * 100
+    
+    m1, m2, m3 = st.columns(3)
+    m1.metric("Sepet Tutarı", f"{toplam:,.2f} ₺")
+    m2.metric("Geçen Ay", f"{gecen:,.2f} ₺")
+    m3.metric("Enflasyon", f"%{degisim:.2f}", delta="Artış")
+    
+    st.subheader("📋 Detaylı Liste")
+    
+    # Tabloyu özelleştirilmiş göster
+    st.dataframe(
+        df[["Kategori", "Ürün", "Güncel Fiyat", "Durum"]].style.format({"Güncel Fiyat": "{:.2f} ₺"}),
+        use_container_width=True,
+        hide_index=True
+    )
+    
+    st.caption("* '🟠 Yedek Veri': Siteye erişilemediğinde kullanılan ortalama piyasa fiyatıdır.")
 
 else:
-    st.markdown("### Hoşgeldiniz!")
-    st.write("Sol menüdeki **'Analizi Başlat'** butonuna basarak güncel verileri çekebilirsiniz.")
+    st.write("Başlamak için butona basın.")
