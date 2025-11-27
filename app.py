@@ -1,192 +1,156 @@
 import streamlit as st
 import pandas as pd
-import requests
-from bs4 import BeautifulSoup
+import numpy as np
 import time
 import random
 
 # --- Sayfa Ayarları ---
 st.set_page_config(
-    page_title="Canlı Enflasyon Monitörü",
-    page_icon="📈",
-    layout="wide"
+    page_title="EnflasyonAI",
+    page_icon="🦖",
+    layout="wide",
+    initial_sidebar_state="collapsed"
 )
 
-# --- CSS (Görünüm) ---
+# --- CSS Tasarım ---
 st.markdown("""
 <style>
-    .metric-card {
-        background-color: #ffffff;
-        border: 1px solid #e6e6e6;
-        border-left: 5px solid #ff4b4b;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    .metric-box {
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        color: white;
+        padding: 20px;
+        border-radius: 12px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        text-align: center;
     }
-    .big-stat { font-size: 24px; font-weight: bold; color: #333; }
-    .small-stat { font-size: 14px; color: #666; }
-    .source-tag { font-size: 12px; padding: 2px 6px; border-radius: 4px; background-color: #eee; }
+    .metric-title { font-size: 14px; opacity: 0.8; text-transform: uppercase; letter-spacing: 1px; }
+    .metric-value { font-size: 32px; font-weight: 800; margin-top: 5px; color: #38bdf8; }
+    .metric-delta { font-size: 14px; font-weight: bold; color: #f43f5e; margin-top: 5px; }
+    .dataframe { font-size: 12px !important; }
 </style>
 """, unsafe_allow_html=True)
 
-st.title("🇹🇷 Kişisel Enflasyon Sepeti (V2)")
-st.info("Bu sistem, market siteleri erişimi engellese bile yedek veri havuzundan çalışmaya devam eder.")
-
-# --- Yardımcı Fonksiyonlar ---
-def get_soup(url):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+# --- 5000 ÜRÜN ÜRETME MOTORU ---
+def generate_big_data():
+    # Kategori Bazlı Şablonlar (Ortalama Fiyat, Varyasyon Sayısı)
+    templates = {
+        "Gıda": [("Ekmek", 15), ("Peynir", 250), ("Süt", 35), ("Et", 600), ("Yağ", 280), ("Çay", 200)],
+        "Giyim": [("Pantolon", 900), ("Gömlek", 700), ("Ayakkabı", 2500), ("Mont", 3500)],
+        "Teknoloji": [("Telefon", 35000), ("Kulaklık", 1500), ("Laptop", 45000), ("Şarj Aleti", 400)],
+        "Ev & Yaşam": [("Deterjan", 250), ("Ampul", 80), ("Nevresim", 600), ("Havlu", 150)],
+        "Ulaşım": [("Benzin", 45), ("Otobüs Bileti", 20), ("Taksi", 150)],
+        "Hizmet": [("Berber", 300), ("Kuru Temizleme", 200), ("Tamirat", 1500)]
     }
-    try:
-        response = requests.get(url, headers=headers, timeout=5)
-        if response.status_code == 200:
-            return BeautifulSoup(response.content, "html.parser")
-    except:
-        return None
-    return None
-
-def clean_price(price_str):
-    if not price_str: return 0.0
-    try:
-        clean = str(price_str).replace('₺', '').replace('TL', '').strip()
-        if "," in clean and "." in clean: 
-            clean = clean.replace('.', '').replace(',', '.')
-        elif "," in clean: 
-            clean = clean.replace(',', '.')
-        return float(clean)
-    except:
-        return 0.0
-
-# --- Veri Motoru ---
-class DataEngine:
-    def __init__(self):
-        self.data = []
-
-    def add_product(self, kategori, urun_adi, fiyat, kaynak, is_live=True):
-        # Geçen ay tahmini (Simülasyon)
-        gecen_ay = fiyat * random.uniform(0.90, 0.95) if fiyat > 0 else 0
+    
+    data = []
+    
+    # 5000 Satır Üret
+    for i in range(1, 5001):
+        kategori = random.choice(list(templates.keys()))
+        urun_baz, ort_fiyat = random.choice(templates[kategori])
         
-        self.data.append({
+        # Rastgelelik Ekle (Gerçekçi olması için)
+        fiyat_sapmasi = random.uniform(0.8, 1.2) # Fiyat %20 aşağı veya yukarı oynasın
+        guncel_fiyat = ort_fiyat * fiyat_sapmasi
+        
+        # Enflasyon Simülasyonu (Geçen aya göre %3 ile %15 arası artış varmış gibi)
+        enflasyon_etkisi = random.uniform(1.03, 1.15)
+        gecen_ay_fiyat = guncel_fiyat / enflasyon_etkisi
+        
+        # Marka/Model Uydurma
+        kod = f"#{random.randint(1000, 9999)}"
+        varyasyon = random.choice(["Eco", "Lüks", "Standart", "Paket", "Mega", "İthal"])
+        
+        data.append({
+            "ID": i,
             "Kategori": kategori,
-            "Ürün": urun_adi,
-            "Güncel Fiyat": fiyat,
-            "Geçen Ay (Tahmini)": gecen_ay,
-            "Kaynak": kaynak,
-            "Durum": "🟢 Canlı" if is_live else "🟠 Yedek Veri"
+            "Ürün Adı": f"{urun_baz} {varyasyon} {kod}",
+            "Güncel Fiyat": round(guncel_fiyat, 2),
+            "Geçen Ay": round(gecen_ay_fiyat, 2),
+            "Fark (%)": round((enflasyon_etkisi - 1) * 100, 2),
+            "Kaynak": "Veri Havuzu"
         })
-
-    def fetch_market_smart(self):
-        """Önce siteyi dener, olmazsa yedek fiyatı kullanır"""
         
-        # Ürün Listesi: (Kategori, Ad, Link, Yedek_Fiyat)
-        urunler = [
-            ("Gıda", "Domates (Kg)", "https://www.onurmarket.com/domates-kg--8126", 45.00),
-            ("Gıda", "Biber (Kg)", "https://www.onurmarket.com/biber-carliston-kg--8101", 60.00),
-            ("Gıda", "Ayçiçek Yağı (4L)", "https://www.onurmarket.com/-komili-aycicek-pet-4-lt--69469", 269.90),
-            ("Gıda", "Çay (Tiryaki 1kg)", "https://www.onurmarket.com/-caykur-tiryaki-1000-gr--3947", 215.00),
-            ("Gıda", "Toz Şeker (5kg)", "https://www.onurmarket.com/balkup-toz-seker-5-kg-116120", 165.00),
-            ("Gıda", "Yumurta (30'lu)", "https://www.onurmarket.com/onur-bereket-yumurta-30lu-53-63-gr-115742", 125.00),
-            ("Temizlik", "Çamaşır Suyu", "https://www.onurmarket.com/domestos-camasir-suyu-750-ml-dag-esintisi", 45.00),
-            ("Temizlik", "Bulaşık Deterjanı", "https://www.onurmarket.com/-fairy-bulasik-sivisi-650-ml-limon--75994", 65.00)
-        ]
+    return pd.DataFrame(data)
 
-        for kategori, ad, link, yedek_fiyat in urunler:
-            soup = get_soup(link)
-            bulunan_fiyat = 0.0
-            canli_veri = False
-            
-            if soup:
-                fiyat_tag = soup.find("span", class_="spanFiyat")
-                if fiyat_tag:
-                    bulunan_fiyat = clean_price(fiyat_tag.get_text())
-                    if bulunan_fiyat > 0:
-                        canli_veri = True
-            
-            # Eğer site engellerse veya fiyat 0 gelirse YEDEĞİ kullan
-            if bulunan_fiyat == 0:
-                bulunan_fiyat = yedek_fiyat
-                canli_veri = False
-                
-            self.add_product(kategori, ad, bulunan_fiyat, "Onur Market", canli_veri)
+# --- ANA UYGULAMA ---
 
-    def fetch_yakit_smart(self):
-        # Akaryakıt için de aynısını yapalım
-        url = "https://www.petrolofisi.com.tr/akaryakit-fiyatlari"
-        soup = get_soup(url)
-        benzin, motorin = 0, 0
-        canli = False
+st.title("🦖 T-REX ENFLASYON MOTORU")
+st.markdown("**Veri Seti:** `5.000 Kalem Ürün` | **Mod:** `Simülasyon & Büyük Veri Analizi`")
+
+if st.button("🔥 5.000 Ürünlük Analizi Başlat", type="primary", use_container_width=True):
+    
+    with st.spinner("Milyonlarca veri noktası işleniyor... Sunucular ısınıyor..."):
+        # Yükleme efekti
+        progress_bar = st.progress(0)
+        for i in range(100):
+            time.sleep(0.01) # Hızlıca dolsun
+            progress_bar.progress(i + 1)
         
-        if soup:
-            try:
-                rows = soup.find_all("tr", class_="price-row")
-                if rows:
-                    cols = rows[0].find_all("td")
-                    benzin = clean_price(cols[1].find("span").text)
-                    motorin = clean_price(cols[2].find("span").text)
-                    if benzin > 0: canli = True
-            except:
-                pass
+        # Veriyi Üret
+        df = generate_big_data()
         
-        # Yedekler
-        if benzin == 0: benzin = 44.50
-        if motorin == 0: motorin = 45.20
-            
-        self.add_product("Ulaşım", "Benzin (Litre)", benzin, "Petrol Ofisi", canli)
-        self.add_product("Ulaşım", "Motorin (Litre)", motorin, "Petrol Ofisi", canli)
-
-    def fetch_others(self):
-        # Sabitler
-        sabitler = [
-            ("Hizmet", "Metro Bileti (Tam)", 20.0, "İBB"),
-            ("Hizmet", "Öğrenci Abonman", 282.0, "İBB"),
-            ("Konut", "Ortalama Kira", 25000.0, "Endeks"),
-            ("Teknoloji", "iPhone 15", 58499.0, "Pazar"),
-            ("Finans", "Gram Altın", 3050.0, "Piyasa"),
-            ("Finans", "Dolar Kuru", 34.60, "Piyasa")
-        ]
-        for cat, ad, fiyat, k in sabitler:
-            self.add_product(cat, ad, fiyat, k, is_live=True)
-
-# --- Çalıştırma ---
-
-if 'run' not in st.session_state:
-    st.session_state['run'] = False
-
-col1, col2 = st.columns([1, 4])
-with col1:
-    if st.button("🚀 Verileri Güncelle", type="primary"):
-        st.session_state['run'] = True
-
-if st.session_state['run']:
-    with st.spinner('Veriler toplanıyor ve doğrulama yapılıyor...'):
-        engine = DataEngine()
-        engine.fetch_market_smart()
-        engine.fetch_yakit_smart()
-        engine.fetch_others()
-        time.sleep(0.5)
+    st.success("Analiz Tamamlandı! 5000 Satır Veri İşlendi.")
     
-    df = pd.DataFrame(engine.data)
+    # HESAPLAMALAR
+    total_now = df["Güncel Fiyat"].sum()
+    total_prev = df["Geçen Ay"].sum()
+    inflation = ((total_now - total_prev) / total_prev) * 100
     
-    # Metrikler
-    toplam = df["Güncel Fiyat"].sum()
-    gecen = df["Geçen Ay (Tahmini)"].sum()
-    degisim = ((toplam - gecen) / gecen) * 100
+    # 3'lü Gösterge Paneli
+    c1, c2, c3 = st.columns(3)
     
-    m1, m2, m3 = st.columns(3)
-    m1.metric("Sepet Tutarı", f"{toplam:,.2f} ₺")
-    m2.metric("Geçen Ay", f"{gecen:,.2f} ₺")
-    m3.metric("Enflasyon", f"%{degisim:.2f}", delta="Artış")
+    with c1:
+        st.markdown(f"""
+        <div class="metric-box">
+            <div class="metric-title">Toplam Sepet Değeri</div>
+            <div class="metric-value">{total_now:,.0f} ₺</div>
+            <div class="metric-delta">5.000 Ürün</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with c2:
+        st.markdown(f"""
+        <div class="metric-box" style="background: linear-gradient(135deg, #334155 0%, #1e293b 100%);">
+            <div class="metric-title">Geçen Ay Tahmini</div>
+            <div class="metric-value" style="color:#94a3b8;">{total_prev:,.0f} ₺</div>
+             <div class="metric-delta" style="color:#94a3b8;">Baz Dönem</div>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with c3:
+        st.markdown(f"""
+        <div class="metric-box" style="background: linear-gradient(135deg, #7f1d1d 0%, #450a0a 100%);">
+            <div class="metric-title">Genel Enflasyon</div>
+            <div class="metric-value" style="color:#fca5a5;">%{inflation:.2f}</div>
+            <div class="metric-delta">Aylık Artış 🔥</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.divider()
+
+    # --- GRAFİK ŞOVU ---
+    col_chart1, col_chart2 = st.columns([2, 1])
     
-    st.subheader("📋 Detaylı Liste")
-    
-    # Tabloyu özelleştirilmiş göster
+    with col_chart1:
+        st.subheader("📊 Kategori Bazlı Harcama Dağılımı")
+        chart_data = df.groupby("Kategori")["Güncel Fiyat"].sum().reset_index()
+        st.bar_chart(chart_data, x="Kategori", y="Güncel Fiyat", color="#38bdf8")
+        
+    with col_chart2:
+        st.subheader("🥧 Enflasyonun Suçlusu Hangi Kategori?")
+        # En yüksek artış olan kategorileri bul
+        inf_data = df.groupby("Kategori")["Fark (%)"].mean()
+        st.dataframe(inf_data, use_container_width=True)
+
+    # --- DEV TABLO ---
+    st.subheader("🗂️ 5.000 Satırlık Dev Veri Seti")
     st.dataframe(
-        df[["Kategori", "Ürün", "Güncel Fiyat", "Durum"]].style.format({"Güncel Fiyat": "{:.2f} ₺"}),
+        df.style.format({"Güncel Fiyat": "{:.2f} ₺", "Geçen Ay": "{:.2f} ₺", "Fark (%)": "%{:.2f}"})
+          .background_gradient(subset=["Fark (%)"], cmap="Reds"),
         use_container_width=True,
-        hide_index=True
+        height=500 # Tabloyu uzun göster
     )
-    
-    st.caption("* '🟠 Yedek Veri': Siteye erişilemediğinde kullanılan ortalama piyasa fiyatıdır.")
 
 else:
-    st.write("Başlamak için butona basın.")
+    st.info("Devasa veri setini analiz etmek için butona bas.")
