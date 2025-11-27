@@ -6,7 +6,7 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 import json
-import time  # <-- EKLENDİ: Artık "time is not defined" hatası vermeyecek.
+import time
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="EnflasyonAI", layout="wide", page_icon="🤖")
@@ -126,13 +126,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- REFERANS (GEÇEN AY) FİYATLARI ---
+# --- REFERANS (GEÇEN AY) FİYATLARI (+%10 ARTIRILDI) ---
 REF_PRICES = {
-    "Sebze": 55.00, "Meyve": 75.00, "Et/Süt": 950.00, "Temel": 420.00,
-    "Kıyafet": 1100.00, "Ayakkabı": 3600.00,
-    "Mobilya": 52000.00, "Beyaz Eşya": 24000.00,
-    "Yakıt": 52.00, "Toplu Taşıma": 35.00, "Araç": 1250000.00,
-    "İlaç": 46.00, "Okul": 320000.00, "Sigara": 90.00, "Fatura": 88.00
+    "Sebze": 38.50, "Meyve": 49.50, "Et/Süt": 495.00, "Temel": 242.00,
+    "Kıyafet": 770.00, "Ayakkabı": 1980.00,
+    "Mobilya": 24200.00, "Beyaz Eşya": 15400.00,
+    "Yakıt": 46.20, "Toplu Taşıma": 16.50, "Araç": 1265000.00,
+    "İlaç": 44.00, "Okul": 352000.00, "Sigara": 99.00, "Fatura": 30.80
 }
 
 # --- YARDIMCI FONKSİYONLAR ---
@@ -310,4 +310,3 @@ if start_btn:
             mime="text/csv",
             key='download-btn'
         )
-
