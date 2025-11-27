@@ -128,11 +128,11 @@ st.markdown("""
 
 # --- REFERANS (GEÇEN AY) FİYATLARI ---
 REF_PRICES = {
-    "Sebze": 35.00, "Meyve": 45.00, "Et/Süt": 450.00, "Temel": 220.00,
-    "Kıyafet": 700.00, "Ayakkabı": 1800.00,
-    "Mobilya": 22000.00, "Beyaz Eşya": 14000.00,
-    "Yakıt": 42.00, "Toplu Taşıma": 15.00, "Araç": 1150000.00,
-    "İlaç": 40.00, "Okul": 320000.00, "Sigara": 90.00, "Fatura": 28.00
+    "Sebze": 55.00, "Meyve": 75.00, "Et/Süt": 950.00, "Temel": 420.00,
+    "Kıyafet": 1100.00, "Ayakkabı": 3600.00,
+    "Mobilya": 52000.00, "Beyaz Eşya": 24000.00,
+    "Yakıt": 52.00, "Toplu Taşıma": 35.00, "Araç": 1250000.00,
+    "İlaç": 46.00, "Okul": 320000.00, "Sigara": 90.00, "Fatura": 88.00
 }
 
 # --- YARDIMCI FONKSİYONLAR ---
@@ -310,3 +310,4 @@ if start_btn:
             mime="text/csv",
             key='download-btn'
         )
+
