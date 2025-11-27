@@ -6,6 +6,7 @@ from bs4 import BeautifulSoup
 import re
 from datetime import datetime
 import json
+import time  # <-- EKLENDİ: Artık "time is not defined" hatası vermeyecek.
 
 # --- SAYFA AYARLARI ---
 st.set_page_config(page_title="EnflasyonAI", layout="wide", page_icon="🤖")
